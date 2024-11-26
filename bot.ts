@@ -71,16 +71,19 @@ export function validateRugcheckReport(report: any): boolean {
     return false;
   }
 
+  // Check if token is rugged
   if (report.rugged) {
     logger.warn({ mint: report.mint }, 'Token is flagged as rugged');
     return false;
   }
 
+  // Check if liquidity lockers exist
   if (report.lockerOwners && Object.keys(report.lockerOwners).length === 0) {
     logger.warn({ mint: report.mint }, 'No liquidity lockers found, potential risk');
     return false;
   }
 
+  // Check if sufficient liquidity is locked
   if (report.lpLockers?.lpLockedPct < 95) {
     logger.warn(
       { mint: report.mint, lockedPct: report.lpLockers?.lpLockedPct },
@@ -89,6 +92,61 @@ export function validateRugcheckReport(report: any): boolean {
     return false;
   }
 
+  // Check token supply distribution among holders
+  const topHolders = report.topHolders || [];
+  const topHolderPct = topHolders.reduce((max, holder) => Math.max(max, holder.pct), 0);
+  if (topHolderPct > 50) {
+    logger.warn(
+      { mint: report.mint, topHolderPct },
+      'High concentration of token supply among top holders, potential risk',
+    );
+    return false;
+  }
+
+  // Check if the token has a mutable metadata update authority
+  if (report.tokenMeta?.mutable) {
+    logger.warn({ mint: report.mint }, 'Token metadata is mutable, potential risk of malicious changes');
+    return false;
+  }
+
+  // Check if the token's mint authority is null (renounced)
+  if (report.token?.mintAuthority) {
+    logger.warn(
+      { mint: report.mint, mintAuthority: report.token.mintAuthority },
+      'Mint authority is not renounced, potential risk of token supply manipulation',
+    );
+    return false;
+  }
+
+  // Check for liquidity provider count
+  if (report.totalLPProviders < 2) {
+    logger.warn(
+      { mint: report.mint, lpProviders: report.totalLPProviders },
+      'Low number of liquidity providers, potential market manipulation risk',
+    );
+    return false;
+  }
+
+  // Check if transfer fees are enabled (anti-bot or tax mechanisms)
+  if (report.transferFee?.pct > 0) {
+    logger.warn(
+      { mint: report.mint, transferFeePct: report.transferFee.pct },
+      'Transfer fee detected, may affect trading operations',
+    );
+    return false;
+  }
+
+  // Additional checks for known risks in the report
+  const risks = report.risks || [];
+  for (const risk of risks) {
+    if (risk.level === 'warn' || risk.level === 'critical') {
+      logger.warn({ mint: report.mint, risk }, 'Risk identified in Rugcheck report');
+      return false;
+    }
+  }
+
+  // Log successful validation
+  logger.info({ mint: report.mint }, 'Token passed Rugcheck validation');
   return true;
 }
 
@@ -142,11 +200,6 @@ export class Bot {
 
   public async buy(accountId: PublicKey, poolState: LiquidityStateV4) {
     logger.trace({ mint: poolState.baseMint }, `Processing new pool...`);
-    const rugcheckReport = await fetchRugcheckReport(poolState.baseMint.toString());
-    if (!validateRugcheckReport(rugcheckReport)) {
-      logger.debug({ mint: poolState.baseMint.toString() }, 'Skipping buy due to Rugcheck validation failure');
-      return;
-    }
   
     if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.baseMint.toString())) {
       logger.debug({ mint: poolState.baseMint.toString() }, `Skipping buy because token is not in a snipe list`);
@@ -156,6 +209,12 @@ export class Bot {
     if (this.config.autoBuyDelay > 0) {
       logger.debug({ mint: poolState.baseMint }, `Waiting for ${this.config.autoBuyDelay} ms before buy`);
       await sleep(this.config.autoBuyDelay);
+    }
+
+    const rugcheckReport = await fetchRugcheckReport(poolState.baseMint.toString());
+    if (!validateRugcheckReport(rugcheckReport)) {
+      logger.debug({ mint: poolState.baseMint.toString() }, 'Skipping buy due to Rugcheck validation failure');
+      return;
     }
   
     if (this.config.oneTokenAtATime) {
