@@ -94,7 +94,7 @@ export function validateRugcheckReport(report: any): boolean {
 
   // Check token supply distribution among holders
   const topHolders = report.topHolders || [];
-  const topHolderPct = topHolders.reduce((max, holder) => Math.max(max, holder.pct), 0);
+  const topHolderPct = topHolders.reduce((max: number, holder: { pct: number }) => Math.max(max, holder.pct), 0);
   if (topHolderPct > 50) {
     logger.warn(
       { mint: report.mint, topHolderPct },
