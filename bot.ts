@@ -104,17 +104,17 @@ export class Bot {
 
   public async buy(accountId: PublicKey, poolState: LiquidityStateV4) {
     logger.trace({ mint: poolState.baseMint }, `Processing new pool...`);
-
+  
     if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.baseMint.toString())) {
       logger.debug({ mint: poolState.baseMint.toString() }, `Skipping buy because token is not in a snipe list`);
       return;
     }
-
+  
     if (this.config.autoBuyDelay > 0) {
       logger.debug({ mint: poolState.baseMint }, `Waiting for ${this.config.autoBuyDelay} ms before buy`);
       await sleep(this.config.autoBuyDelay);
     }
-
+  
     if (this.config.oneTokenAtATime) {
       if (this.mutex.isLocked() || this.sellExecutionCount > 0) {
         logger.debug(
@@ -123,26 +123,26 @@ export class Bot {
         );
         return;
       }
-
+  
       await this.mutex.acquire();
     }
-
+  
     try {
       const [market, mintAta] = await Promise.all([
         this.marketStorage.get(poolState.marketId.toString()),
         getAssociatedTokenAddress(poolState.baseMint, this.config.wallet.publicKey),
       ]);
       const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(accountId, poolState, market);
-
+  
       if (!this.config.useSnipeList) {
         const match = await this.filterMatch(poolKeys);
-
+  
         if (!match) {
           logger.trace({ mint: poolKeys.baseMint.toString() }, `Skipping buy because pool doesn't match filters`);
           return;
         }
       }
-
+  
       for (let i = 0; i < this.config.maxBuyRetries; i++) {
         try {
           logger.info(
@@ -161,7 +161,7 @@ export class Bot {
             this.config.wallet,
             'buy',
           );
-
+  
           if (result.confirmed) {
             logger.info(
               {
@@ -171,10 +171,10 @@ export class Bot {
               },
               `Confirmed buy tx`,
             );
-
+  
             break;
           }
-
+  
           logger.info(
             {
               mint: poolState.baseMint.toString(),
@@ -186,6 +186,11 @@ export class Bot {
         } catch (error) {
           logger.debug({ mint: poolState.baseMint.toString(), error }, `Error confirming buy transaction`);
         }
+  
+        // Exponential backoff delay
+        const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s, 8s, etc.
+        logger.debug({ mint: poolState.baseMint.toString() }, `Retrying buy in ${delay} ms`);
+        await sleep(delay);
       }
     } catch (error) {
       logger.error({ mint: poolState.baseMint.toString(), error }, `Failed to buy token`);
@@ -195,47 +200,47 @@ export class Bot {
       }
     }
   }
-
+  
   public async sell(accountId: PublicKey, rawAccount: RawAccount) {
     if (this.config.oneTokenAtATime) {
       this.sellExecutionCount++;
     }
-
+  
     try {
       logger.trace({ mint: rawAccount.mint }, `Processing new token...`);
-
+  
       const poolData = await this.poolStorage.get(rawAccount.mint.toString());
-
+  
       if (!poolData) {
         logger.trace({ mint: rawAccount.mint.toString() }, `Token pool data is not found, can't sell`);
         return;
       }
-
+  
       const tokenIn = new Token(TOKEN_PROGRAM_ID, poolData.state.baseMint, poolData.state.baseDecimal.toNumber());
       const tokenAmountIn = new TokenAmount(tokenIn, rawAccount.amount, true);
-
+  
       if (tokenAmountIn.isZero()) {
         logger.info({ mint: rawAccount.mint.toString() }, `Empty balance, can't sell`);
         return;
       }
-
+  
       if (this.config.autoSellDelay > 0) {
         logger.debug({ mint: rawAccount.mint }, `Waiting for ${this.config.autoSellDelay} ms before sell`);
         await sleep(this.config.autoSellDelay);
       }
-
+  
       const market = await this.marketStorage.get(poolData.state.marketId.toString());
       const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(new PublicKey(poolData.id), poolData.state, market);
-
+  
       await this.priceMatch(tokenAmountIn, poolKeys);
-
+  
       for (let i = 0; i < this.config.maxSellRetries; i++) {
         try {
           logger.info(
             { mint: rawAccount.mint },
             `Send sell transaction attempt: ${i + 1}/${this.config.maxSellRetries}`,
           );
-
+  
           const result = await this.swap(
             poolKeys,
             accountId,
@@ -247,7 +252,7 @@ export class Bot {
             this.config.wallet,
             'sell',
           );
-
+  
           if (result.confirmed) {
             logger.info(
               {
@@ -260,7 +265,7 @@ export class Bot {
             );
             break;
           }
-
+  
           logger.info(
             {
               mint: rawAccount.mint.toString(),
@@ -272,6 +277,11 @@ export class Bot {
         } catch (error) {
           logger.debug({ mint: rawAccount.mint.toString(), error }, `Error confirming sell transaction`);
         }
+  
+        // Exponential backoff delay
+        const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s, 8s, etc.
+        logger.debug({ mint: rawAccount.mint.toString() }, `Retrying sell in ${delay} ms`);
+        await sleep(delay);
       }
     } catch (error) {
       logger.error({ mint: rawAccount.mint.toString(), error }, `Failed to sell token`);
