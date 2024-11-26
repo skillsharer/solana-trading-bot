@@ -6,6 +6,7 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
+import axios from 'axios';
 import {
   createAssociatedTokenAccountIdempotentInstruction,
   createCloseAccountInstruction,
@@ -52,6 +53,43 @@ export interface BotConfig {
   filterCheckInterval: number;
   filterCheckDuration: number;
   consecutiveMatchCount: number;
+}
+
+export async function fetchRugcheckReport(tokenAddress: string): Promise<any> {
+  try {
+    const response = await axios.get(`https://api.rugcheck.xyz/v1/tokens/${tokenAddress}/report`);
+    return response.data;
+  } catch (error) {
+    logger.error({ tokenAddress, error }, 'Failed to fetch Rugcheck report');
+    return null;
+  }
+}
+
+export function validateRugcheckReport(report: any): boolean {
+  if (!report) {
+    logger.warn('No Rugcheck report available');
+    return false;
+  }
+
+  if (report.rugged) {
+    logger.warn({ mint: report.mint }, 'Token is flagged as rugged');
+    return false;
+  }
+
+  if (report.lockerOwners && Object.keys(report.lockerOwners).length === 0) {
+    logger.warn({ mint: report.mint }, 'No liquidity lockers found, potential risk');
+    return false;
+  }
+
+  if (report.lpLockers?.lpLockedPct < 95) {
+    logger.warn(
+      { mint: report.mint, lockedPct: report.lpLockers?.lpLockedPct },
+      'Insufficient liquidity locked, potential risk',
+    );
+    return false;
+  }
+
+  return true;
 }
 
 export class Bot {
@@ -104,6 +142,11 @@ export class Bot {
 
   public async buy(accountId: PublicKey, poolState: LiquidityStateV4) {
     logger.trace({ mint: poolState.baseMint }, `Processing new pool...`);
+    const rugcheckReport = await fetchRugcheckReport(poolState.baseMint.toString());
+    if (!validateRugcheckReport(rugcheckReport)) {
+      logger.debug({ mint: poolState.baseMint.toString() }, 'Skipping buy due to Rugcheck validation failure');
+      return;
+    }
   
     if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.baseMint.toString())) {
       logger.debug({ mint: poolState.baseMint.toString() }, `Skipping buy because token is not in a snipe list`);
