@@ -136,15 +136,6 @@ export function validateRugcheckReport(report: any): boolean {
     return false;
   }
 
-  // Additional checks for known risks in the report
-  const risks = report.risks || [];
-  for (const risk of risks) {
-    if (risk.level === 'warn' || risk.level === 'critical') {
-      logger.warn({ mint: report.mint, risk }, 'Risk identified in Rugcheck report');
-      return false;
-    }
-  }
-
   // Log successful validation
   logger.info({ mint: report.mint }, 'Token passed Rugcheck validation');
   return true;
