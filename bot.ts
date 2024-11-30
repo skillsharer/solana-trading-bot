@@ -53,6 +53,15 @@ export interface BotConfig {
   filterCheckInterval: number;
   filterCheckDuration: number;
   consecutiveMatchCount: number;
+  useRugcheckFilters: boolean;
+  checkRugcheckFlag: boolean;
+  checkIfLpLocked: boolean;
+  checkIfTokenMetadataMutable: boolean;
+  checkIfMintIsRenounced: boolean;
+  checkTransferFees: boolean;
+  topHoldersPercentageThreshold: number;
+  totalLpProvidersThreshold: number;
+  lpPercentageThreshold: number;
 }
 
 export async function fetchRugcheckReport(tokenAddress: string): Promise<any> {
@@ -65,79 +74,81 @@ export async function fetchRugcheckReport(tokenAddress: string): Promise<any> {
   }
 }
 
-export function validateRugcheckReport(report: any): boolean {
+export function validateRugcheckReport(report: any, config: BotConfig): boolean {
   if (!report) {
-    logger.warn('No Rugcheck report available');
+    logger.warn('RUGCHECK: No rugcheck.xyz report available');
     return false;
   }
 
   // Check if token is rugged
-  if (report.rugged) {
-    logger.warn({ mint: report.mint }, 'Token is flagged as rugged');
+  if (config.checkRugcheckFlag && report.rugged) {
+    logger.warn({ mint: report.mint }, 'RUGCHECK: Token is flagged as rugged');
     return false;
   }
 
   // Check if liquidity lockers exist
-  if (report.lockerOwners && Object.keys(report.lockerOwners).length === 0) {
-    logger.warn({ mint: report.mint }, 'No liquidity lockers found, potential risk');
+  if (config.checkIfLpLocked && report.lockerOwners && Object.keys(report.lockerOwners).length === 0) {
+    logger.warn({ mint: report.mint }, 'RUGCHECK: No liquidity lockers found, potential risk');
     return false;
   }
 
   // Check if sufficient liquidity is locked
-  if (report.lpLockers?.lpLockedPct < 95) {
+  if (config.checkIfLpLocked && report.lpLockers?.lpLockedPct < config.lpPercentageThreshold) {
     logger.warn(
       { mint: report.mint, lockedPct: report.lpLockers?.lpLockedPct },
-      'Insufficient liquidity locked, potential risk',
+      'RUGCHECK: Insufficient liquidity locked, potential risk',
     );
     return false;
   }
 
   // Check token supply distribution among holders
-  const topHolders = report.topHolders || [];
-  const topHolderPct = topHolders.reduce((max: number, holder: { pct: number }) => Math.max(max, holder.pct), 0);
-  if (topHolderPct > 50) {
-    logger.warn(
-      { mint: report.mint, topHolderPct },
-      'High concentration of token supply among top holders, potential risk',
-    );
-    return false;
+  if (config.topHoldersPercentageThreshold > 0) {
+    const topHolders = report.topHolders || [];
+    const topHolderPct = topHolders.reduce((max: number, holder: { pct: number }) => Math.max(max, holder.pct), 0);
+    if (topHolderPct > config.topHoldersPercentageThreshold) {
+      logger.warn(
+        { mint: report.mint, topHolderPct },
+        'RUGCHECK: High concentration of token supply among top holders, potential risk',
+      );
+      return false;
+    }
   }
 
   // Check if the token has a mutable metadata update authority
-  if (report.tokenMeta?.mutable) {
-    logger.warn({ mint: report.mint }, 'Token metadata is mutable, potential risk of malicious changes');
+  if (config.checkIfTokenMetadataMutable && report.tokenMeta?.mutable) {
+    logger.warn({ mint: report.mint }, 'RUGCHECK: Token metadata is mutable, potential risk of malicious changes');
     return false;
   }
 
   // Check if the token's mint authority is null (renounced)
-  if (report.token?.mintAuthority) {
+  if (config.checkIfMintIsRenounced && report.token?.mintAuthority) {
     logger.warn(
       { mint: report.mint, mintAuthority: report.token.mintAuthority },
-      'Mint authority is not renounced, potential risk of token supply manipulation',
+      'RUGCHECK: Mint authority is not renounced, potential risk of token supply manipulation',
     );
     return false;
   }
 
   // Check for liquidity provider count
-  if (report.totalLPProviders < 2) {
+  if (config.totalLpProvidersThreshold > 0 && report.totalLPProviders < config.totalLpProvidersThreshold) {
     logger.warn(
       { mint: report.mint, lpProviders: report.totalLPProviders },
-      'Low number of liquidity providers, potential market manipulation risk',
+      'RUGCHECK: Low number of liquidity providers, potential market manipulation risk',
     );
     return false;
   }
 
   // Check if transfer fees are enabled (anti-bot or tax mechanisms)
-  if (report.transferFee?.pct > 0) {
+  if (config.checkTransferFees && report.transferFee?.pct > 0) {
     logger.warn(
       { mint: report.mint, transferFeePct: report.transferFee.pct },
-      'Transfer fee detected, may affect trading operations',
+      'RUGCHECK: Transfer fee detected, may affect trading operations',
     );
     return false;
   }
 
   // Log successful validation
-  logger.info({ mint: report.mint }, 'Token passed Rugcheck validation');
+  logger.info({ mint: report.mint }, 'RUGCHECK: Token passed Rugcheck validation');
   return true;
 }
 
@@ -202,10 +213,13 @@ export class Bot {
       await sleep(this.config.autoBuyDelay);
     }
 
-    const rugcheckReport = await fetchRugcheckReport(poolState.baseMint.toString());
-    if (!validateRugcheckReport(rugcheckReport)) {
-      logger.debug({ mint: poolState.baseMint.toString() }, 'Skipping buy due to Rugcheck validation failure');
-      return;
+    // Rugcheck validation
+    if (this.config.useRugcheckFilters) {
+      const rugcheckReport = await fetchRugcheckReport(poolState.baseMint.toString());
+      if (!validateRugcheckReport(rugcheckReport, this.config)) {
+        logger.debug({ mint: poolState.baseMint.toString() }, 'Skipping buy due to Rugcheck validation failure');
+        return;
+      }
     }
   
     if (this.config.oneTokenAtATime) {

@@ -45,6 +45,15 @@ import {
   FILTER_CHECK_INTERVAL,
   FILTER_CHECK_DURATION,
   CONSECUTIVE_FILTER_MATCHES,
+  USE_RUGCHECK_FILTERS,
+  CHECK_RUGCHECK_FLAG,
+  CHECK_IF_LP_LOCKED,
+  CHECK_IF_TOKEN_METADATA_MUTABLE,
+  CHECK_IF_RENOUNCED,
+  CHECK_TRANSFER_FEES,
+  TOP_HOLDERS_PERCENTAGE_THRESHOLD,
+  TOTAL_LP_PROVIDERS_THRESHOLD,
+  LP_PERCENTAGE_THRESHOLD
 } from './helpers';
 import { version } from './package.json';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
@@ -132,6 +141,18 @@ function printDetails(wallet: Keypair, quoteToken: Token, bot: Bot) {
     logger.info(`Max pool size: ${botConfig.maxPoolSize.toFixed()}`);
   }
 
+  if (botConfig.useRugcheckFilters){
+    logger.info('- Rugcheck Filters -');
+    logger.info(`Check rugcheck flag: ${botConfig.checkRugcheckFlag}`);
+    logger.info(`Check if LP locked: ${botConfig.checkIfLpLocked}`);
+    logger.info(`Check if token metadata mutable: ${botConfig.checkIfTokenMetadataMutable}`);
+    logger.info(`Check if renounced: ${botConfig.checkIfMintIsRenounced}`);
+    logger.info(`Check transfer fees: ${botConfig.checkTransferFees}`);
+    logger.info(`Top holders percentage threshold: ${botConfig.topHoldersPercentageThreshold}%`);
+    logger.info(`Total LP providers threshold: ${botConfig.totalLpProvidersThreshold}`);
+    logger.info(`LP percentage threshold: ${botConfig.lpPercentageThreshold}%`);
+  }
+
   logger.info('------- CONFIGURATION END -------');
 
   logger.info('Bot is running! Press CTRL + C to stop it.');
@@ -190,6 +211,15 @@ const runListener = async () => {
     filterCheckInterval: FILTER_CHECK_INTERVAL,
     filterCheckDuration: FILTER_CHECK_DURATION,
     consecutiveMatchCount: CONSECUTIVE_FILTER_MATCHES,
+    useRugcheckFilters: USE_RUGCHECK_FILTERS,
+    checkIfMintIsRenounced: CHECK_IF_RENOUNCED,
+    checkRugcheckFlag: CHECK_RUGCHECK_FLAG,
+    checkIfLpLocked: CHECK_IF_LP_LOCKED,
+    checkIfTokenMetadataMutable: CHECK_IF_TOKEN_METADATA_MUTABLE,
+    checkTransferFees: CHECK_TRANSFER_FEES,
+    topHoldersPercentageThreshold: TOP_HOLDERS_PERCENTAGE_THRESHOLD,
+    totalLpProvidersThreshold: TOTAL_LP_PROVIDERS_THRESHOLD
+    lpPercentageThreshold: LP_PERCENTAGE_THRESHOLD
   };
 
   const bot = new Bot(connection, marketCache, poolCache, txExecutor, botConfig);

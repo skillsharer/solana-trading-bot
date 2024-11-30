@@ -63,3 +63,14 @@ export const MIN_POOL_SIZE = retrieveEnvVariable('MIN_POOL_SIZE', logger);
 export const MAX_POOL_SIZE = retrieveEnvVariable('MAX_POOL_SIZE', logger);
 export const USE_SNIPE_LIST = retrieveEnvVariable('USE_SNIPE_LIST', logger) === 'true';
 export const SNIPE_LIST_REFRESH_INTERVAL = Number(retrieveEnvVariable('SNIPE_LIST_REFRESH_INTERVAL', logger));
+
+// RUGCHECK
+export const USE_RUGCHECK_FILTERS = retrieveEnvVariable('USE_RUGCHECK_FILTERS', logger) === 'true';
+export const CHECK_RUGCHECK_FLAG = retrieveEnvVariable('CHECK_RUGCHECK_FLAG', logger) === 'true';
+export const CHECK_IF_LP_LOCKED = retrieveEnvVariable('CHECK_IF_LP_LOCKED', logger) === 'true';
+export const CHECK_IF_TOKEN_METADATA_MUTABLE = retrieveEnvVariable('CHECK_IF_TOKEN_METADATA_MUTABLE', logger) === 'true';
+export const CHECK_IF_RENOUNCED = retrieveEnvVariable('CHECK_IF_RENOUNCED', logger) === 'true';
+export const CHECK_TRANSFER_FEES = retrieveEnvVariable('CHECK_TRANSFER_FEES', logger) === 'true';
+export const TOP_HOLDERS_PERCENTAGE_THRESHOLD = Number(retrieveEnvVariable('TOP_HOLDERS_PERCENTAGE_THRESHOLD', logger));
+export const TOTAL_LP_PROVIDERS_THRESHOLD = Number(retrieveEnvVariable('TOTAL_LP_PROVIDERS_THRESHOLD', logger));
+export const LP_PERCENTAGE_THRESHOLD = Number(retrieveEnvVariable('LP_PERCENTAGE_THRESHOLD', logger));
