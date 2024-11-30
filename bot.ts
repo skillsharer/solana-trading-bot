@@ -130,7 +130,7 @@ export function validateRugcheckReport(report: any, config: BotConfig): boolean 
   }
 
   // Check for liquidity provider count
-  if (config.totalLpProvidersThreshold > 0 && report.totalLPProviders < config.totalLpProvidersThreshold) {
+  if (config.totalLpProvidersThreshold > 0 && report.totalLPProviders <= config.totalLpProvidersThreshold) {
     logger.warn(
       { mint: report.mint, lpProviders: report.totalLPProviders },
       'RUGCHECK: Low number of liquidity providers, potential market manipulation risk',
