@@ -218,7 +218,7 @@ const runListener = async () => {
     checkIfTokenMetadataMutable: CHECK_IF_TOKEN_METADATA_MUTABLE,
     checkTransferFees: CHECK_TRANSFER_FEES,
     topHoldersPercentageThreshold: TOP_HOLDERS_PERCENTAGE_THRESHOLD,
-    totalLpProvidersThreshold: TOTAL_LP_PROVIDERS_THRESHOLD
+    totalLpProvidersThreshold: TOTAL_LP_PROVIDERS_THRESHOLD,
     lpPercentageThreshold: LP_PERCENTAGE_THRESHOLD
   };
 
