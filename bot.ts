@@ -295,9 +295,9 @@ export class Bot {
         }
   
         // Exponential backoff delay
-        const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s, 8s, etc.
-        logger.debug({ mint: poolState.baseMint.toString() }, `Retrying buy in ${delay} ms`);
-        await sleep(delay);
+        //const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s, 8s, etc.
+        //logger.debug({ mint: poolState.baseMint.toString() }, `Retrying buy in ${delay} ms`);
+        //await sleep(delay);
       }
     } catch (error) {
       logger.error({ mint: poolState.baseMint.toString(), error }, `Failed to buy token`);
@@ -386,9 +386,9 @@ export class Bot {
         }
   
         // Exponential backoff delay
-        const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s, 8s, etc.
-        logger.debug({ mint: rawAccount.mint.toString() }, `Retrying sell in ${delay} ms`);
-        await sleep(delay);
+        //const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s, 8s, etc.
+        //logger.debug({ mint: rawAccount.mint.toString() }, `Retrying sell in ${delay} ms`);
+        //await sleep(delay);
       }
     } catch (error) {
       logger.error({ mint: rawAccount.mint.toString(), error }, `Failed to sell token`);
